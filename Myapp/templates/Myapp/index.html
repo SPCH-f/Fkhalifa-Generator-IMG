@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Image Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Outfit', sans-serif;
+        }
+
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .gradient-bg {
+            background: radial-gradient(circle at 50% 50%, #4c1d95 0%, #0f172a 50%, #000000 100%);
+        }
+
+        @keyframes pulse-glow {
+
+            0%,
+            100% {
+                box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+            }
+
+            50% {
+                box-shadow: 0 0 40px rgba(139, 92, 246, 0.8);
+            }
+        }
+
+        .scanning::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent, rgba(139, 92, 246, 0.2), transparent);
+            animation: scan 2s linear infinite;
+        }
+
+        @keyframes scan {
+            0% {
+                transform: translateY(-100%);
+            }
+
+            100% {
+                transform: translateY(100%);
+            }
+        }
+    </style>
+</head>
+
+<body class="gradient-bg min-h-screen text-gray-100 flex flex-col items-center justify-center p-4">
+
+    <!-- Navbar/Header -->
+    <nav class="absolute top-0 left-0 w-full p-6 flex justify-between items-center z-10">
+        <div
+            class="text-2xl font-bold tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-600">
+            FILMkhalifa AI
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="w-full max-w-4xl z-10 flex flex-col md:flex-row gap-8 items-start">
+
+        <!-- Input Section -->
+        <div class="w-full md:w-1/2 glass rounded-2xl p-8 transform hover:scale-[1.01] transition-all duration-300">
+            <h1 class="text-3xl font-bold mb-2">Imagine Anything</h1>
+            <p class="text-gray-400 mb-6">Turn your text into visual reality with our advanced AI engine.</p>
+
+            <form id="generateForm" class="space-y-6">
+                {% csrf_token %}
+                <div class="space-y-2">
+                    <label for="prompt" class="block text-sm font-medium text-gray-300">Enter your prompt</label>
+                    <textarea id="prompt" name="prompt" rows="4" autocomplete="off"
+                        class="w-full bg-gray-900/50 border border-gray-700 rounded-xl p-4 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none"
+                        placeholder="A futuristic cyberpunk city with neon lights..." required></textarea>
+                    
+                    <!-- ส่วนแสดงคำแนะนำ (Suggestions) -->
+                    <div id="suggestionsBox" class="hidden absolute left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl z-50 overflow-hidden">
+                        <div id="suggestionsList" class="flex flex-col">
+                            <!-- คำแนะนำจะปรากฏที่นี่ -->
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" id="generateBtn"
+                    class="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-semibold py-4 rounded-xl shadow-lg transform transition hover:-translate-y-1 active:scale-95 flex items-center justify-center gap-2 group">
+                    <span>Generate</span>
+                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none"
+                        stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                    </svg>
+                </button>
+            </form>
+        </div>
+
+        <!-- Output Section -->
+        <div class="w-full md:w-1/2 glass rounded-2xl p-4 min-h-[450px] flex items-center justify-center relative overflow-hidden group"
+            id="imageContainer">
+
+            <div id="placeholderState" class="text-center text-gray-500 transition-opacity duration-500">
+                <svg class="w-20 h-20 mx-auto mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                    </path>
+                </svg>
+                <p class="text-sm tracking-widest uppercase opacity-40">Ready to Dream</p>
+            </div>
+
+            <div id="loadingState"
+                class="hidden absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-30 backdrop-blur-sm">
+                <div class="relative">
+                    <div class="w-20 h-20 border-4 border-purple-500/20 border-t-purple-500 rounded-full animate-spin">
+                    </div>
+                    <div
+                        class="absolute inset-0 w-20 h-20 border-4 border-transparent border-b-pink-500 rounded-full animate-spin [animation-duration:1.5s]">
+                    </div>
+                </div>
+                <p
+                    class="mt-6 text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 font-bold animate-pulse">
+                    Generating Masterpiece...</p>
+            </div>
+
+            <img id="resultImage" src="" alt="Generated Art"
+                class="hidden w-full h-full object-contain rounded-xl shadow-2xl transition-all duration-700 opacity-0 scale-95 relative z-10">
+
+            <div id="deleteActionContainer" class="hidden absolute top-6 right-6 z-50">
+                <button id="mainDeleteBtn" onclick="deleteCurrentImage()"
+                    class="bg-red-500/20 hover:bg-red-600 backdrop-blur-md text-white p-3 rounded-xl border border-red-500/50 transition-all active:scale-90 group/del shadow-lg opacity-0 group-hover:opacity-100 -translate-y-2 group-hover:translate-y-0 duration-300">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16">
+                        </path>
+                    </svg>
+                </button>
+            </div>
+
+            <div id="downloadContainer"
+                class="hidden absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/80 via-black/20 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300 ease-out z-40">
+                <div class="flex justify-between items-center">
+                    <div class="text-xs text-gray-300 truncate mr-4">
+                        <span class="block font-bold text-white uppercase tracking-tighter">Generated Art</span>
+                        <span id="displayPrompt" class="opacity-70 italic">Success</span>
+                    </div>
+                    <div class="flex gap-2">
+                        <a id="downloadBtn" href="#" download="synapse-ai-art.jpg"
+                            class="bg-white hover:bg-purple-100 text-black px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"
+                                    d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+                            </svg>
+                            Download
+                        </a>
+                        <button id="deleteActionContainer" onclick="if(currentImageId) deleteImage(currentImageId)" 
+                            class="hidden bg-red-500/20 hover:bg-red-500 text-white p-2.5 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all" title="Delete">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <section class="w-full max-w-6xl mt-16 px-4">
+        <h2 class="text-2xl font-bold flex items-center gap-4">
+            <span class="relative flex h-10 w-10 items-center justify-center">
+                <span
+                    class="animate-ping absolute inline-flex h-full w-full rounded-lg bg-purple-400 opacity-20"></span>
+                <span class="relative rounded-lg bg-gradient-to-br from-purple-600 to-pink-600 p-[1px]">
+                    <span
+                        class="flex h-8 w-8 items-center justify-center rounded-[7px] bg-slate-900/90 backdrop-blur-sm">
+                        <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
+                            </path>
+                        </svg>
+                    </span>
+                </span>
+            </span>
+
+            <span class="tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-500">
+                Recent Creations
+            </span>
+
+            <div class="flex-grow h-[1px] bg-gradient-to-r from-purple-500/50 to-transparent ml-4 hidden md:block">
+            </div>
+        </h2>
+
+        <div id="historyGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {% for item in history %}
+            <div id="card-{{ item.id }}" class="glass rounded-xl overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
+                <div class="relative aspect-square overflow-hidden">
+                    <img src="{% if item.thumbnail %}{{ item.thumbnail.url }}{% else %}{{ item.image.url }}{% endif %}" alt="{{ item.prompt }}"
+                        class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 z-20">
+                        <p class="text-[10px] text-gray-200 line-clamp-2 mb-2 italic">"{{ item.prompt }}"</p>
+                        <div class="flex gap-2">
+                            <a href="{{ item.image.url }}" download
+                                class="flex-1 text-[10px] bg-white/20 hover:bg-white/40 backdrop-blur-md py-1.5 px-2 rounded text-center transition-colors font-bold">Download</a>
+                            <button onclick="deleteImage('{{ item.id }}')" 
+                                class="p-1.5 bg-red-500/20 hover:bg-red-500 text-white rounded transition-colors" title="Delete">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <p id="noHistory" class="col-span-full text-center text-gray-500 py-10">No creations yet. Start imagining!
+            </p>
+            {% endfor %}
+        </div>
+    </section>
+
+    <script>
+        const form = document.getElementById('generateForm');
+        const generateBtn = document.getElementById('generateBtn');
+        const imageContainer = document.getElementById('imageContainer');
+        const placeholderState = document.getElementById('placeholderState');
+        const loadingState = document.getElementById('loadingState');
+        const resultImage = document.getElementById('resultImage');
+        const downloadContainer = document.getElementById('downloadContainer');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const displayPrompt = document.getElementById('displayPrompt');
+        
+        // --- Autocomplete Logic ---
+        const promptInput = document.getElementById('prompt');
+        const suggestionsBox = document.getElementById('suggestionsBox');
+        const suggestionsList = document.getElementById('suggestionsList');
+
+        promptInput.addEventListener('input', async (e) => {
+            const query = e.target.value.split(' ').pop(); // เอาเฉพาะคำสุดท้ายที่กำลังพิมพ์
+            if (query.length < 2) {
+                suggestionsBox.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/suggestions/?q=${query}`);
+                const suggestions = await response.json();
+
+                if (suggestions.length > 0) {
+                    suggestionsList.innerHTML = suggestions.map(word => `
+                        <button type="button" class="px-4 py-2 text-left hover:bg-purple-600/30 text-gray-300 hover:text-white transition-colors text-sm border-b border-gray-700/50 last:border-0"
+                            onclick="applySuggestion('${word}')">
+                            ${word}
+                        </button>
+                    `).join('');
+                    suggestionsBox.classList.remove('hidden');
+                } else {
+                    suggestionsBox.classList.add('hidden');
+                }
+            } catch (err) { console.error(err); }
+        });
+
+        function applySuggestion(word) {
+            const words = promptInput.value.split(' ');
+            words.pop(); // ลบคำที่กำลังพิมพ์ไม่เสร็จออก
+            words.push(word); // ใส่คำที่เลือกเข้าไปแทน
+            promptInput.value = words.join(' ') + ' ';
+            suggestionsBox.classList.add('hidden');
+            promptInput.focus();
+        }
+
+        // ปิดกล่องแนะนำเมื่อคลิกที่อื่น
+        document.addEventListener('click', (e) => {
+            if (!suggestionsBox.contains(e.target) && e.target !== promptInput) {
+                suggestionsBox.classList.add('hidden');
+            }
+        });
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            // Get prompt
+            const promptInput = document.getElementById('prompt');
+            const prompt = promptInput.value;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            // UI Updates: Start Loading
+            generateBtn.disabled = true;
+            generateBtn.innerHTML = '<div class="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Drawing...';
+
+            placeholderState.classList.add('hidden');
+            resultImage.classList.add('hidden', 'opacity-0', 'scale-95');
+            downloadContainer.classList.add('hidden');
+            // ซ่อนปุ่มลบของรูปใหญ่ด้วยเมื่อเริ่ม Gen ใหม่
+            if (document.getElementById('deleteActionContainer')) {
+                document.getElementById('deleteActionContainer').classList.add('hidden');
+            }
+
+            loadingState.classList.remove('hidden');
+            imageContainer.classList.add('scanning');
+
+            try {
+                const response = await fetch('/api/generate/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ prompt: prompt })
+                });
+
+                const data = await response.json();
+
+                if (response.ok && data.success) {
+                    // ✅ เก็บ ID ไว้ที่ตัวแปร Global เพื่อให้ปุ่มลบรูปใหญ่ทำงานได้
+                    currentImageId = data.image_id;
+
+                    // Update Image
+                    resultImage.src = data.image_url;
+
+                    resultImage.onload = () => {
+                        loadingState.classList.add('hidden');
+                        imageContainer.classList.remove('scanning');
+
+                        // Show Image with Animation
+                        resultImage.classList.remove('hidden');
+                        setTimeout(() => {
+                            resultImage.classList.remove('opacity-0', 'scale-95');
+                            resultImage.classList.add('opacity-100', 'scale-100');
+                        }, 50);
+
+                        // Setup Download Button
+                        downloadContainer.classList.remove('hidden');
+                        downloadBtn.href = data.image_url;
+
+                        // แสดงปุ่มลบของรูปใหญ่
+                        if (document.getElementById('deleteActionContainer')) {
+                            document.getElementById('deleteActionContainer').classList.remove('hidden');
+                        }
+
+                        if (displayPrompt) {
+                            displayPrompt.innerText = prompt.substring(0, 30) + (prompt.length > 30 ? '...' : '');
+                        }
+
+                        // ✅ ส่ง thumbnail_url เข้าไปด้วย
+                        addToHistory(data.image_url, data.thumbnail_url, data.prompt, data.image_id);
+                    };
+                } else {
+                    alert('Error: ' + (data.error || 'Something went wrong'));
+                    resetUI();
+                }
+
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Connection error. Please try again.');
+                resetUI();
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerHTML = `<span>Generate Art</span>
+                    <svg class="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>`;
+            }
+        });
+
+        function resetUI() {
+            loadingState.classList.add('hidden');
+            imageContainer.classList.remove('scanning');
+            placeholderState.classList.remove('hidden');
+            resultImage.classList.add('hidden', 'opacity-0', 'scale-95');
+            downloadContainer.classList.add('hidden');
+            document.getElementById('deleteActionContainer').classList.add('hidden');
+        }
+
+        function addToHistory(imageUrl, prompt, id) { // เพิ่ม parameter id
+            const historyGrid = document.getElementById('historyGrid');
+            const newCard = document.createElement('div');
+            newCard.id = `card-${id}`; // ใส่ ID ให้การ์ด
+            newCard.className = "glass rounded-xl overflow-hidden group ...";
+
+            newCard.innerHTML = `
+                <div class="relative aspect-square overflow-hidden">
+                    <img src="${imageUrl}" ...>
+                    <div class="absolute inset-0 ...">
+                        <button onclick="deleteImage('${id}')" class="absolute top-2 right-2 p-1.5 bg-red-500/20 hover:bg-red-500 text-white rounded-md opacity-0 group-hover:opacity-100 transition-all">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                        ...
+                    </div>
+                </div>
+            `;
+            historyGrid.prepend(newCard);
+        }
+
+        // เก็บ ID ของรูปที่กำลังแสดงผลอยู่
+        let currentImageId = null;
+
+
+        // แก้ไข addToHistory ไม่ให้เรียกใช้ response
+        function addToHistory(imageUrl, thumbnailUrl, prompt, id) {
+            const historyGrid = document.getElementById('historyGrid');
+            if (!historyGrid) return;
+
+            const noHistory = document.getElementById('noHistory');
+            if (noHistory) noHistory.remove();
+
+            const newCard = document.createElement('div');
+            newCard.id = `card-${id}`; // ตรวจสอบว่าใส่ ID ตรงนี้แล้ว
+            newCard.className = "glass rounded-xl overflow-hidden group hover:border-purple-500/50 transition-all duration-300 opacity-0 translate-y-4";
+
+            newCard.innerHTML = `
+                <div class="relative aspect-square overflow-hidden">
+                    <img src="${thumbnailUrl}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500">
+                    <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col justify-end p-4 z-20">
+                        <p class="text-[10px] text-gray-200 line-clamp-2 mb-2 italic">"${prompt}"</p>
+                        <div class="flex gap-2">
+                            <a href="${imageUrl}" download class="flex-1 text-[10px] bg-white text-black font-bold py-1 px-2 rounded text-center">Download</a>
+                            <button onclick="deleteImage('${id}')" class="p-1 bg-red-500 text-white rounded hover:bg-red-600">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            historyGrid.prepend(newCard);
+            setTimeout(() => {
+                newCard.classList.remove('opacity-0', 'translate-y-4');
+                newCard.classList.add('opacity-100', 'translate-y-0');
+            }, 100);
+        }
+        async function deleteImage(imageId) {
+            if (!confirm('ยืนยันการลบ?')) return;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            try {
+                const res = await fetch('/api/delete/', { // เปลี่ยนชื่อตัวแปรเป็น res กันสับสน
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ id: imageId })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    const card = document.getElementById(`card-${imageId}`);
+                    if (card) card.remove();
+                } else { alert(data.error); }
+            } catch (err) { console.error(err); }
+        }
+    </script>
+</body>
+
+</html>
